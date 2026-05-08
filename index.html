@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cloud Storage App</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="auth-wrapper" class="login-wrapper">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="logo-icon-large"><i class="fas fa-cloud"></i></div>
+        <h2 id="auth-title">Welcome Back</h2>
+        <p id="auth-subtitle">Sign in to your Cloud Storage</p>
+      </div>
+      
+      <form id="auth-form">
+        <div class="form-group hidden" id="name-group">
+          <label for="fullname">Full Name</label>
+          <input type="text" id="fullname" class="form-control" placeholder="Sai Pyae">
+        </div>
+        
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" class="form-control" placeholder="you@example.com" required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" class="form-control" placeholder="••••••••" required>
+        </div>
+        
+        <button type="submit" class="btn primary-btn full-width" id="auth-btn">Sign In</button>
+      </form>
+
+      <div class="auth-toggle">
+        <p id="auth-toggle-text">Don't have an account? <span id="toggle-link" class="browse-link" style="cursor: pointer;">Sign up</span></p>
+      </div>
+      
+      <p id="auth-error" class="hidden" style="color: #ef4444; text-align: center; margin-top: 15px; font-size: 0.9rem; font-weight: 600;"></p>
+    </div>
+  </div>
+
+  <div id="main-app" class="main-app-container hidden">
+    <header class="top-navbar">
+      <div class="nav-left">
+        <div class="logo-icon"><i class="fas fa-cloud"></i></div>
+        <div class="logo-text">
+          <h1>Cloud Storage</h1>
+          <p>Simple file management system</p>
+        </div>
+      </div>
+      <div class="nav-right">
+        <span class="user-name" id="display-user-name">Sai Pyae</span>
+        <div class="user-avatar" id="logout-btn" title="Click to Logout" style="cursor: pointer;"><i class="fas fa-sign-out-alt"></i></div>
+      </div>
+    </header>
+
+    <div class="app-wrapper">
+      
+      <aside>
+        <div class="sidebar-top">
+          <nav>
+            <ul>
+              <li><a href="#" class="active" data-view="dashboard"><i class="fas fa-th-large"></i>Dashboard</a></li>
+              <li><a href="#" data-view="myfiles"><i class="fas fa-folder"></i>My Files</a></li>
+              <li><a href="#" data-view="upload"><i class="fas fa-cloud-upload-alt"></i>Upload</a></li>
+            </ul>
+          </nav>
+        </div>
+        <div class="sidebar-bottom">
+          <ul>
+            <li><a href="#"><i class="fas fa-cog"></i>Settings</a></li>
+          </ul>
+        </div>
+      </aside>
+
+      <main>
+        
+        <div id="dashboard-view" class="view active">
+          <div class="page-header">
+            <h2>Dashboard</h2>
+            <p>Overview of your cloud storage</p>
+          </div>
+
+          <div class="data-cards">
+            <div class="card data-card"><i class="fas fa-folder text-primary icon-large"></i><div><h3 id="total-files-count">0</h3><p>Total Files</p></div></div>
+            <div class="card data-card"><i class="fas fa-hdd text-success icon-large"></i><div><h3 id="total-storage-used">0 MB</h3><p>Storage Used</p></div></div>
+            <div class="card data-card"><i class="fas fa-file-alt text-warning icon-large"></i><div><h3 id="file-types-count">0</h3><p>File Types</p></div></div>
+            <div class="card data-card quick-upload-card"><div><h3><a href="#" data-view="upload">Go <i class="fas fa-arrow-right"></i></a></h3><p>Quick Upload</p></div><i class="fas fa-cloud-upload-alt text-accent icon-large"></i></div>
+          </div>
+
+          <div class="card recent-files-card">
+            <h2 class="card-title">Recent Files</h2>
+            <ul id="recent-files-list"></ul>
+            <div class="view-all-link"><a href="#" data-view="myfiles">View all files <i class="fas fa-arrow-right"></i></a></div>
+          </div>
+        </div>
+
+        <div id="myfiles-view" class="view hidden">
+          <div class="page-header">
+            <div class="title-with-icon">
+              <i class="fas fa-folder"></i>
+              <h2>My Files</h2>
+            </div>
+            <p id="myfiles-count">0 files stored</p>
+          </div>
+
+          <div class="card file-list-card">
+            <div class="table-responsive">
+              <table id="files-table">
+                <thead><tr><th>File Name</th><th>Size</th><th>Date</th><th>Actions</th></tr></thead>
+                <tbody id="file-table-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div id="upload-view" class="view hidden">
+          <div class="page-header">
+            <h2>Upload</h2>
+            <p>Add files to your cloud storage</p>
+          </div>
+
+          <div class="card upload-card">
+            <div class="upload-header">
+              <i class="fas fa-cloud-upload-alt"></i>
+              <h3>Upload File</h3>
+            </div>
+            <div class="drop-zone" id="drop-zone">
+              <i class="fas fa-file-upload large-upload-icon"></i>
+              <p>Drag & drop a file here, or <span class="browse-link">browse</span></p>
+              <input type="file" id="file-input" class="hidden">
+            </div>
+            <div class="upload-actions">
+              <button type="submit" class="btn primary-btn" id="upload-btn"><i class="fas fa-cloud-upload-alt"></i> Upload</button>
+              <p id="upload-status" class="hidden">File uploaded successfully!</p>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="script.js"></script> 
+</body>
+</html>
