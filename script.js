@@ -145,6 +145,10 @@ logoutBtn.addEventListener('click', async () => {
     currentUser  = null;
     filesData    = [];
     selectedFile = null;
+    // Force clear ALL supabase session keys from localStorage
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('sb-')) localStorage.removeItem(key);
+    });
     mainApp.classList.add('hidden');
     authWrapper.classList.remove('hidden');
   }
@@ -154,12 +158,12 @@ logoutBtn.addEventListener('click', async () => {
 db.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_OUT') {
     currentUser = null;
-    filesData = [];
+    filesData   = [];
     mainApp.classList.add('hidden');
     authWrapper.classList.remove('hidden');
     return;
   }
-  if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) { {
+  if (event === 'SIGNED_IN' && session?.user && !currentUser) {
     currentUser = session.user;
     setDisplayName();
     authWrapper.classList.add('hidden');
