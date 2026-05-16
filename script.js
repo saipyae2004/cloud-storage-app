@@ -152,7 +152,14 @@ logoutBtn.addEventListener('click', async () => {
 
 // --- 7. Auto-login if session exists ---
 db.auth.onAuthStateChange(async (event, session) => {
-  if (session?.user && !currentUser) {
+  if (event === 'SIGNED_OUT') {
+    currentUser = null;
+    filesData = [];
+    mainApp.classList.add('hidden');
+    authWrapper.classList.remove('hidden');
+    return;
+  }
+  if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) { {
     currentUser = session.user;
     setDisplayName();
     authWrapper.classList.add('hidden');
