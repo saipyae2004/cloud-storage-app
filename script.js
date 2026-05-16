@@ -15,6 +15,7 @@ const authForm          = document.getElementById('auth-form');
 const authTitle         = document.getElementById('auth-title');
 const authSubtitle      = document.getElementById('auth-subtitle');
 const authBtn           = document.getElementById('auth-btn');
+const toggleLink        = document.getElementById('toggle-link');
 const authToggleText    = document.getElementById('auth-toggle-text');
 const nameGroup         = document.getElementById('name-group');
 const authError         = document.getElementById('auth-error');
@@ -43,15 +44,12 @@ const totalStorageUsed  = document.getElementById('total-storage-used');
 const fileTypesCount    = document.getElementById('file-types-count');
 
 // --- 3. State ---
-let currentUser  = null;
-let filesData    = [];
-let isLoginMode  = true;
-let selectedFile = null; // FIX #1: track selected file in state
+let currentUser = null;
+let filesData   = [];
+let isLoginMode = true;
 
-// --- 4. Auth — Toggle UI (FIX #2: use event delegation, no more dead DOM refs) ---
-authToggleText.addEventListener('click', (e) => {
-  if (e.target.id !== 'toggle-link') return;
-
+// --- 4. Auth — Toggle UI ---
+toggleLink.addEventListener('click', () => {
   isLoginMode = !isLoginMode;
   authError.classList.add('hidden');
 
@@ -59,17 +57,19 @@ authToggleText.addEventListener('click', (e) => {
     authTitle.textContent    = 'Welcome Back';
     authSubtitle.textContent = 'Sign in to your Cloud Storage';
     authBtn.textContent      = 'Sign In';
-    authToggleText.innerHTML = `Don't have an account? <span id="toggle-link" class="browse-link" style="cursor:pointer;">Sign up</span>`;
+    authToggleText.innerHTML = `Don't have an account? <span id="toggle-link" style="cursor:pointer;color:#3b82f6;font-weight:600;">Sign up</span>`;
     nameGroup.classList.add('hidden');
     nameInput.required = false;
   } else {
     authTitle.textContent    = 'Create Account';
     authSubtitle.textContent = 'Join Cloud Storage today';
     authBtn.textContent      = 'Sign Up';
-    authToggleText.innerHTML = `Already have an account? <span id="toggle-link" class="browse-link" style="cursor:pointer;">Sign in</span>`;
+    authToggleText.innerHTML = `Already have an account? <span id="toggle-link" style="cursor:pointer;color:#3b82f6;font-weight:600;">Sign in</span>`;
     nameGroup.classList.remove('hidden');
     nameInput.required = true;
   }
+
+  document.getElementById('toggle-link').addEventListener('click', () => toggleLink.click());
 });
 
 // --- 5. Auth — Submit ---
@@ -83,7 +83,9 @@ authForm.addEventListener('submit', async (e) => {
   const password = passwordInput.value;
 
   if (isLoginMode) {
+    // ── LOGIN ──
     const { data, error } = await db.auth.signInWithPassword({ email, password });
+
     if (error) {
       showAuthError(error.message);
     } else {
@@ -91,13 +93,16 @@ authForm.addEventListener('submit', async (e) => {
       setDisplayName();
       await loginSuccess();
     }
+
   } else {
+    // ── SIGN UP ──
     const name = nameInput.value.trim();
     const { data, error } = await db.auth.signUp({
       email,
       password,
       options: { data: { name } }
     });
+
     if (error) {
       showAuthError(error.message);
     } else {
@@ -125,7 +130,7 @@ function setDisplayName() {
 async function loginSuccess() {
   authWrapper.classList.add('hidden');
   mainApp.classList.remove('hidden');
-  emailInput.value    = '';
+  emailInput.value   = '';
   passwordInput.value = '';
   await loadFiles();
   updateAllViews();
@@ -135,16 +140,18 @@ async function loginSuccess() {
 // --- 6. Logout ---
 logoutBtn.addEventListener('click', async () => {
   try {
+    // Try Supabase logout with 3 second timeout
     await Promise.race([
       db.auth.signOut(),
       new Promise((_, reject) => setTimeout(() => reject(), 3000))
     ]);
   } catch {
+    // If Supabase is down, force logout anyway
     console.log('Forced logout');
   } finally {
-    currentUser  = null;
-    filesData    = [];
-    selectedFile = null;
+    // Always run this regardless
+    currentUser = null;
+    filesData   = [];
     mainApp.classList.add('hidden');
     authWrapper.classList.remove('hidden');
   }
@@ -185,14 +192,17 @@ async function loadFiles() {
 async function handleUpload(file) {
   if (!file || !currentUser) return;
 
-  uploadBtn.disabled       = true;
+  // Show uploading state
+  uploadBtn.disabled      = true;
   uploadStatus.textContent = '⏳ Uploading...';
   uploadStatus.style.color = '#3b82f6';
   uploadStatus.classList.remove('hidden');
 
+  // Build unique file path: userId/timestamp.ext
   const ext      = file.name.split('.').pop();
   const filePath = `${currentUser.id}/${Date.now()}.${ext}`;
 
+  // Upload to Supabase Storage
   const { error: storageError } = await db.storage
     .from('uploads')
     .upload(filePath, file);
@@ -204,18 +214,21 @@ async function handleUpload(file) {
     return;
   }
 
+  // Get public download URL
   const { data: urlData } = db.storage
     .from('uploads')
     .getPublicUrl(filePath);
 
+  // Detect file type
   const type = detectFileType(file);
 
+  // Save record to database
   const { error: dbError } = await db.from('files').insert({
-    name:    file.name,
-    size:    formatSize(file.size),
-    type:    type,
-    url:     urlData.publicUrl,
-    user_id: currentUser.id
+    name:     file.name,
+    size:     formatSize(file.size),
+    type:     type,
+    url:      urlData.publicUrl,
+    user_id:  currentUser.id
   });
 
   if (dbError) {
@@ -225,10 +238,10 @@ async function handleUpload(file) {
     return;
   }
 
+  // ✅ Success!
   uploadStatus.textContent = '✅ File uploaded successfully!';
   uploadStatus.style.color = '#22c55e';
   fileInput.value          = '';
-  selectedFile             = null; // FIX #1: clear state after upload
   uploadBtn.disabled       = false;
 
   await loadFiles();
@@ -243,6 +256,7 @@ async function deleteFile(id) {
   const file = filesData.find(f => f.id === id);
   if (!file) return;
 
+  // Extract storage path from public URL
   const marker    = '/object/public/uploads/';
   const pathStart = file.url.indexOf(marker);
   if (pathStart !== -1) {
@@ -250,7 +264,9 @@ async function deleteFile(id) {
     await db.storage.from('uploads').remove([storagePath]);
   }
 
+  // Delete from database
   const { error } = await db.from('files').delete().eq('id', id);
+
   if (!error) {
     await loadFiles();
     updateAllViews();
@@ -262,10 +278,10 @@ function downloadFile(id) {
   const file = filesData.find(f => f.id === id);
   if (!file) return;
 
-  const a    = document.createElement('a');
-  a.href     = file.url;
-  a.download = file.name;
-  a.target   = '_blank';
+  const a       = document.createElement('a');
+  a.href        = file.url;
+  a.download    = file.name;
+  a.target      = '_blank';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -275,11 +291,11 @@ function downloadFile(id) {
 function detectFileType(file) {
   const name = file.name.toLowerCase();
   const mime = file.type.toLowerCase();
-  if (mime.includes('image'))                                                    return 'image';
-  if (mime.includes('pdf') || name.endsWith('.pdf'))                             return 'pdf';
-  if (name.endsWith('.docx') || name.endsWith('.doc'))                           return 'word';
+  if (mime.includes('image'))                                      return 'image';
+  if (mime.includes('pdf') || name.endsWith('.pdf'))               return 'pdf';
+  if (name.endsWith('.docx') || name.endsWith('.doc'))             return 'word';
   if (name.endsWith('.xlsx') || name.endsWith('.xls') || name.endsWith('.csv')) return 'excel';
-  if (mime.includes('video'))                                                    return 'video';
+  if (mime.includes('video'))                                      return 'video';
   return 'file';
 }
 
@@ -306,18 +322,13 @@ function renderDashboardStats() {
   const uniqueTypes = new Set(filesData.map(f => f.type));
   fileTypesCount.textContent  = uniqueTypes.size;
 
-  // FIX #4: now correctly handles MB, KB, and plain bytes
-  let totalBytes = 0;
+  let totalMb = 0;
   filesData.forEach(f => {
     const num = parseFloat(f.size);
-    if (f.size.includes('MB'))      totalBytes += num * 1024 * 1024;
-    else if (f.size.includes('KB')) totalBytes += num * 1024;
-    else                            totalBytes += num; // plain bytes
+    if (f.size.includes('MB'))      totalMb += num;
+    else if (f.size.includes('KB')) totalMb += num / 1024;
   });
-  const totalMb = totalBytes / (1024 * 1024);
-  totalStorageUsed.textContent = totalMb >= 1
-    ? totalMb.toFixed(2) + ' MB'
-    : (totalBytes / 1024).toFixed(1) + ' KB';
+  totalStorageUsed.textContent = totalMb.toFixed(2) + ' MB';
 }
 
 function renderRecentFiles() {
@@ -343,8 +354,8 @@ function renderRecentFiles() {
 }
 
 function renderFilesTable() {
-  fileTableBody.innerHTML  = '';
-  myFilesCount.textContent = `${filesData.length} files stored`;
+  fileTableBody.innerHTML    = '';
+  myFilesCount.textContent   = `${filesData.length} files stored`;
 
   if (filesData.length === 0) {
     fileTableBody.innerHTML = `
@@ -416,26 +427,8 @@ if (goUploadLink) {
 }
 
 // --- 15. Upload Events ---
-// FIX #1: Two-step upload — first click picks file, button triggers actual upload
-fileInput.addEventListener('change', (e) => {
-  selectedFile = e.target.files[0] || null;
-  if (selectedFile) {
-    uploadStatus.textContent = `📄 "${selectedFile.name}" selected. Click Upload to continue.`;
-    uploadStatus.style.color = '#6b7280';
-    uploadStatus.classList.remove('hidden');
-  }
-});
-
-uploadBtn.addEventListener('click', () => {
-  if (selectedFile) {
-    handleUpload(selectedFile); // file already chosen — upload it
-  } else {
-    fileInput.click(); // nothing chosen yet — open picker
-  }
-});
-
-// FIX #3: clicking the drop zone (including the "browse" link) opens file picker
-dropZone.addEventListener('click', () => fileInput.click());
+uploadBtn.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => handleUpload(e.target.files[0]));
 
 dropZone.addEventListener('dragover',  (e) => { e.preventDefault(); dropZone.classList.add('active'); });
 dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('active'));
